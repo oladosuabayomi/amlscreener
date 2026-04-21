@@ -1,18 +1,11 @@
 "use client";
 
 import { useCallback, useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useAMLStore } from "@/lib/store";
 import { Transaction } from "@/types/transaction";
 import { useAlertStore } from "@/lib/alert-store";
-import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetDescription,
-} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CustomerProfileModal } from "./CustomerProfileModal";
@@ -234,6 +227,25 @@ export function AnalysisDrawer() {
         setShowCancelPrompt(false);
     }, []);
 
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault();
+
+            if (isAnalyzing) {
+                setShowCancelPrompt(true);
+                return;
+            }
+
+            handleAttemptClose();
+        };
+
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [isOpen, isAnalyzing, handleAttemptClose]);
+
     // Auto-scroll to bottom when AI summary updates
     useEffect(() => {
         if (aiSummary) {
@@ -334,44 +346,36 @@ export function AnalysisDrawer() {
         setShowProfileModal(true);
     };
 
-    return (
-        <Sheet
-            open={isOpen}
-            onOpenChange={(open) => {
-                if (!open) handleAttemptClose();
-            }}
-        >
-            <SheetContent
-                side="right"
-                showCloseButton={false}
-                className="w-full sm:max-w-120 p-0 flex flex-col border-0 relative"
+    const drawerNode = isOpen ? (
+        <>
+            <div
+                className="fixed inset-0 z-[1000] bg-black/20 supports-backdrop-filter:backdrop-blur-sm animate-in fade-in-0 duration-200"
+                onClick={() => {
+                    if (isAnalyzing) {
+                        setShowCancelPrompt(true);
+                        return;
+                    }
+                    handleAttemptClose();
+                }}
+            />
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Transaction Analysis"
+                className="fixed z-[1001] p-0 flex flex-col border-0 relative animate-in slide-in-from-right-10 fade-in-0 duration-300"
                 style={{
+                    position: "fixed",
+                    top: 0,
+                    left: "auto",
+                    right: "0px",
+                    bottom: 0,
+                    width: "38rem",
+                    maxWidth: "100vw",
                     background: "var(--surface)",
                     borderLeft: `1px solid ${riskColor}30`,
                     boxShadow: `-24px 0 80px rgba(0,0,0,0.6)`,
                 }}
-                onPointerDownOutside={(e) => {
-                    if (isAnalyzing) {
-                        e.preventDefault();
-                        setShowCancelPrompt(true);
-                    }
-                }}
-                onEscapeKeyDown={(e) => {
-                    if (isAnalyzing) {
-                        e.preventDefault();
-                        setShowCancelPrompt(true);
-                    }
-                }}
             >
-                {/* Visually hidden accessibility titles */}
-                <SheetHeader className="sr-only">
-                    <SheetTitle>Transaction Analysis</SheetTitle>
-                    <SheetDescription>
-                        AI-powered AML compliance analysis for the selected
-                        transaction
-                    </SheetDescription>
-                </SheetHeader>
-
                 {/* ── Drawer Header ─────────────────────────────── */}
                 <div
                     className="relative px-5 py-4 flex items-start justify-between shrink-0"
@@ -714,13 +718,21 @@ export function AnalysisDrawer() {
                         </Button>
                     </div>
                 </div>
-            </SheetContent>
+            </div>
+        </>
+    ) : null;
+
+    return (
+        <>
+            {typeof document !== "undefined" && drawerNode
+                ? createPortal(drawerNode, document.body)
+                : null}
 
             <CustomerProfileModal
                 transaction={selectedTransaction}
                 open={showProfileModal}
                 onOpenChange={setShowProfileModal}
             />
-        </Sheet>
+        </>
     );
 }
