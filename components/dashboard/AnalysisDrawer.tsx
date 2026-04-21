@@ -27,6 +27,124 @@ const RISK_COLORS: Record<string, string> = {
     CRITICAL: "#ef4444",
 };
 
+function escapePdfText(text: string): string {
+    return text
+        .replace(/\\/g, "\\\\")
+        .replace(/\(/g, "\\(")
+        .replace(/\)/g, "\\)");
+}
+
+function wrapPdfLines(text: string, maxChars = 92): string[] {
+    const wrapped: string[] = [];
+    const paragraphs = text.replace(/\r\n/g, "\n").split("\n");
+
+    for (const paragraph of paragraphs) {
+        if (!paragraph.trim()) {
+            wrapped.push("");
+            continue;
+        }
+
+        const words = paragraph.split(/\s+/);
+        let line = "";
+
+        for (const word of words) {
+            const candidate = line ? `${line} ${word}` : word;
+            if (candidate.length <= maxChars) {
+                line = candidate;
+            } else {
+                if (line) wrapped.push(line);
+                line = word;
+            }
+        }
+
+        if (line) wrapped.push(line);
+    }
+
+    return wrapped;
+}
+
+function buildSimplePdf(title: string, body: string): Uint8Array {
+    const pageWidth = 612;
+    const pageHeight = 792;
+    const left = 50;
+    const top = 760;
+    const leading = 14;
+    const linesPerPage = 48;
+
+    const allLines = [
+        title.toUpperCase(),
+        "",
+        ...wrapPdfLines(body, 92),
+    ];
+
+    const pageChunks: string[][] = [];
+    for (let i = 0; i < allLines.length; i += linesPerPage) {
+        pageChunks.push(allLines.slice(i, i + linesPerPage));
+    }
+    if (pageChunks.length === 0) pageChunks.push([""]);
+
+    const fontObjId = 3;
+    const firstPageObjId = 4;
+    const objects: string[] = [];
+
+    objects[1] = `<< /Type /Catalog /Pages 2 0 R >>`;
+    const pageIds = pageChunks.map((_, idx) => firstPageObjId + idx * 2);
+    objects[2] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
+    objects[fontObjId] = `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>`;
+
+    pageChunks.forEach((lines, idx) => {
+        const pageObjId = firstPageObjId + idx * 2;
+        const contentObjId = pageObjId + 1;
+
+        const textOps = [
+            "BT",
+            `/F1 10 Tf`,
+            `${left} ${top} Td`,
+            `${leading} TL`,
+            ...lines.map((line) => `(${escapePdfText(line)}) Tj T*`),
+            "ET",
+        ].join("\n");
+
+        objects[pageObjId] =
+            `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] ` +
+            `/Resources << /Font << /F1 ${fontObjId} 0 R >> >> /Contents ${contentObjId} 0 R >>`;
+        objects[contentObjId] =
+            `<< /Length ${new TextEncoder().encode(textOps).length} >>\nstream\n${textOps}\nendstream`;
+    });
+
+    const maxObj = objects.length - 1;
+    let pdf = "%PDF-1.4\n";
+    const offsets: number[] = [0];
+
+    for (let i = 1; i <= maxObj; i++) {
+        offsets[i] = new TextEncoder().encode(pdf).length;
+        pdf += `${i} 0 obj\n${objects[i]}\nendobj\n`;
+    }
+
+    const xrefOffset = new TextEncoder().encode(pdf).length;
+    pdf += `xref\n0 ${maxObj + 1}\n`;
+    pdf += "0000000000 65535 f \n";
+    for (let i = 1; i <= maxObj; i++) {
+        pdf += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+    }
+    pdf += `trailer\n<< /Size ${maxObj + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+    return new TextEncoder().encode(pdf);
+}
+
+function downloadSarPdf(filename: string, title: string, body: string): void {
+    const bytes = buildSimplePdf(title, body);
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+
 const MOCK_RESPONSE: Record<string, string> = {
     SMURFING: `PATTERN DETECTED — Classic smurfing (structuring) behaviour identified.
 
@@ -275,6 +393,9 @@ export function AnalysisDrawer() {
         if (!selectedTransaction || !aiSummary) return;
 
         setIsGeneratingSAR(true);
+        const fileDate = new Date().toISOString().slice(0, 10);
+        const filename = `SAR-${selectedTransaction.id}-${fileDate}.pdf`;
+        const title = `Suspicious Activity Report - ${selectedTransaction.id}`;
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
             const response = await fetch(`${apiUrl}/api/generate-sar`, {
@@ -289,10 +410,14 @@ export function AnalysisDrawer() {
             if (!response.ok) throw new Error("SAR generation failed");
 
             const data = await response.json();
-            // In a real app, this would open a SAR viewer or download
-            alert(`SAR Generated: ${data.sar.substring(0, 100)}...`);
+            const sarText =
+                typeof data?.sar === "string" && data.sar.trim()
+                    ? data.sar
+                    : aiSummary;
+            downloadSarPdf(filename, title, sarText);
         } catch (error) {
-            alert("Failed to generate SAR report");
+            // Backend may be unavailable in local/dev; export from current analysis as fallback.
+            downloadSarPdf(filename, title, aiSummary);
         } finally {
             setIsGeneratingSAR(false);
         }
