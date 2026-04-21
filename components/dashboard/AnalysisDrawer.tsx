@@ -63,7 +63,7 @@ function wrapPdfLines(text: string, maxChars = 92): string[] {
     return wrapped;
 }
 
-function buildSimplePdf(title: string, body: string): Uint8Array {
+function buildSimplePdf(title: string, body: string): string {
     const pageWidth = 612;
     const pageHeight = 792;
     const left = 50;
@@ -129,12 +129,12 @@ function buildSimplePdf(title: string, body: string): Uint8Array {
     }
     pdf += `trailer\n<< /Size ${maxObj + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
 
-    return new TextEncoder().encode(pdf);
+    return pdf;
 }
 
 function downloadSarPdf(filename: string, title: string, body: string): void {
-    const bytes = buildSimplePdf(title, body);
-    const blob = new Blob([bytes], { type: "application/pdf" });
+    const pdf = buildSimplePdf(title, body);
+    const blob = new Blob([pdf], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
