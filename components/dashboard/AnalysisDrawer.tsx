@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { useAMLStore } from "@/lib/store";
 import { Transaction } from "@/types/transaction";
+import { useAlertStore } from "@/lib/alert-store";
 import {
     Sheet,
     SheetContent,
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { CustomerProfileModal } from "./CustomerProfileModal";
 import {
     Zap,
     Shield,
@@ -106,7 +108,13 @@ export function AnalysisDrawer() {
         appendAISummary,
         isAnalyzing,
         setIsAnalyzing,
+        isGeneratingSAR,
+        setIsGeneratingSAR,
+        frozenAccounts,
+        setAccountFrozen,
     } = useAMLStore();
+
+    const setAlertStatus = useAlertStore((state) => state.setAlertStatus);
 
     const isOpen = !!selectedTransaction;
 
@@ -116,6 +124,21 @@ export function AnalysisDrawer() {
 
     // Whether the "cancel analysis?" confirmation card is showing
     const [showCancelPrompt, setShowCancelPrompt] = useState(false);
+    // Customer profile modal
+    const [showProfileModal, setShowProfileModal] = useState(false);
+
+    // Auto-scroll to bottom when AI summary updates
+    useEffect(() => {
+        if (aiSummary) {
+            // Use setTimeout to ensure DOM has updated
+            setTimeout(() => {
+                const viewport = document.querySelector('[data-radix-scroll-area-viewport]');
+                if (viewport) {
+                    viewport.scrollTop = viewport.scrollHeight;
+                }
+            }, 50);
+        }
+    }, [aiSummary]);
 
     const analyzeTransaction = useCallback(
         async (txn: Transaction) => {
@@ -211,6 +234,20 @@ export function AnalysisDrawer() {
         setShowCancelPrompt(false);
     }, []);
 
+    // Auto-scroll to bottom when AI summary updates
+    useEffect(() => {
+        if (aiSummary) {
+            // Use setTimeout to ensure DOM has updated
+            setTimeout(() => {
+                // Find the AI output container and scroll it to bottom
+                const aiContainer = document.querySelector('.max-h-96.overflow-y-auto');
+                if (aiContainer) {
+                    aiContainer.scrollTop = aiContainer.scrollHeight;
+                }
+            }, 0);
+        }
+    }, [aiSummary]);
+
     // Analysis is triggered manually via the CTA button — no auto-fire.
 
     const riskColor = selectedTransaction
@@ -222,17 +259,92 @@ export function AnalysisDrawer() {
             navigator.clipboard.writeText(selectedTransaction.id);
     };
 
+    const handleGenerateSAR = async () => {
+        if (!selectedTransaction || !aiSummary) return;
+
+        setIsGeneratingSAR(true);
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const response = await fetch(`${apiUrl}/api/generate-sar`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    transaction: selectedTransaction,
+                    aiSummary,
+                }),
+            });
+
+            if (!response.ok) throw new Error("SAR generation failed");
+
+            const data = await response.json();
+            // In a real app, this would open a SAR viewer or download
+            alert(`SAR Generated: ${data.sar.substring(0, 100)}...`);
+        } catch (error) {
+            alert("Failed to generate SAR report");
+        } finally {
+            setIsGeneratingSAR(false);
+        }
+    };
+
+    const handleEscalate = async () => {
+        if (!selectedTransaction) return;
+
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const response = await fetch(`${apiUrl}/api/escalate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    transactionId: selectedTransaction.id,
+                }),
+            });
+
+            if (!response.ok) throw new Error("Escalation failed");
+
+            setAlertStatus(selectedTransaction.id, "ESCALATED");
+            alert("Transaction escalated to Senior Compliance Officer");
+        } catch (error) {
+            alert("Failed to escalate transaction");
+        }
+    };
+
+    const handleFreezeAccount = async () => {
+        if (!selectedTransaction) return;
+
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const response = await fetch(`${apiUrl}/api/freeze-account`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    accountId: selectedTransaction.id, // In real app, would be account ID
+                }),
+            });
+
+            if (!response.ok) throw new Error("Freeze failed");
+
+            setAccountFrozen(selectedTransaction.id, true);
+            alert("Account frozen successfully");
+        } catch (error) {
+            alert("Failed to freeze account");
+        }
+    };
+
+    const handleViewProfile = () => {
+        setShowProfileModal(true);
+    };
+
     return (
         <Sheet
             open={isOpen}
             onOpenChange={(open) => {
-                if (!open && !isAnalyzing) setSelectedTransaction(null);
+                if (!open) handleAttemptClose();
             }}
         >
             <SheetContent
                 side="right"
                 showCloseButton={false}
-                className="w-full sm:max-w-120 p-0 flex flex-col border-0"
+                className="w-full sm:max-w-120 p-0 flex flex-col border-0 relative"
                 style={{
                     background: "var(--surface)",
                     borderLeft: `1px solid ${riskColor}30`,
@@ -390,7 +502,7 @@ export function AnalysisDrawer() {
                 </div>
 
                 {/* ── Scrollable Body (Snapshot + AI Output) ─────────── */}
-                <ScrollArea className="flex-1">
+                <ScrollArea className="flex-1 min-h-0">
                     {/* ── Transaction Snapshot ─────────────────────────── */}
                     {selectedTransaction && (
                         <div
@@ -464,43 +576,52 @@ export function AnalysisDrawer() {
 
                     {/* ── AI Output ─────────────────────────────────────── */}
                     <div className="px-5 py-4">
-                        {aiSummary ? (
-                            <div
-                                className="font-mono text-[12px] leading-[1.75] whitespace-pre-wrap"
-                                style={{ color: "var(--text-1)" }}
-                            >
-                                {aiSummary}
-                                {isAnalyzing && (
-                                    <span className="inline-block w-1.5 h-3.5 ml-0.5 align-middle ai-cursor" />
-                                )}
-                            </div>
-                        ) : isAnalyzing ? (
-                            <div className="flex items-center gap-2 py-2">
-                                <span
-                                    className="inline-block w-1.5 h-1.5 rounded-full"
-                                    style={{
-                                        background: "#3b82f6",
-                                        animation:
-                                            "pulse 1s ease-in-out infinite",
-                                    }}
-                                />
-                                <span
-                                    className="font-mono text-[11px]"
-                                    style={{ color: "var(--text-3)" }}
+                        <div
+                            className="max-h-96 overflow-y-auto border rounded-md p-4"
+                            style={{
+                                background: "var(--surface-3)",
+                                borderColor: "var(--border)",
+                            }}
+                        >
+                            {aiSummary ? (
+                                <div
+                                    className="font-mono text-[12px] leading-[1.75] whitespace-pre-wrap"
+                                    style={{ color: "var(--text-1)" }}
                                 >
-                                    Generating compliance report…
-                                </span>
-                            </div>
-                        ) : null}
+                                    {aiSummary}
+                                    {isAnalyzing && (
+                                        <span className="inline-block w-1.5 h-3.5 ml-0.5 align-middle ai-cursor" />
+                                    )}
+                                </div>
+                            ) : isAnalyzing ? (
+                                <div className="flex items-center gap-2 py-2">
+                                    <span
+                                        className="inline-block w-1.5 h-1.5 rounded-full"
+                                        style={{
+                                            background: "#3b82f6",
+                                            animation:
+                                                "pulse 1s ease-in-out infinite",
+                                        }}
+                                    />
+                                    <span
+                                        className="font-mono text-[11px]"
+                                        style={{ color: "var(--text-3)" }}
+                                    >
+                                        Generating compliance report…
+                                    </span>
+                                </div>
+                            ) : null}
+                        </div>
                     </div>
                 </ScrollArea>
 
-                {/* ── Action CTAs ───────────────────────────────── */}
+                {/* ── Fixed Action CTAs ───────────────────────────────── */}
                 <div
-                    className="px-5 py-4 flex flex-col gap-3 shrink-0"
+                    className="absolute bottom-0 left-0 right-0 px-5 py-4 flex flex-col gap-3 border-t z-10"
                     style={{
-                        borderTop: "1px solid var(--border)",
+                        borderColor: "var(--border)",
                         background: "var(--surface-2)",
+                        boxShadow: "0 -4px 12px rgba(0,0,0,0.1)",
                     }}
                 >
                     {/* Re-analyse */}
@@ -539,14 +660,11 @@ export function AnalysisDrawer() {
                                 color: "#f97316",
                                 background: "rgba(249,115,22,0.07)",
                             }}
-                            onClick={() =>
-                                alert(
-                                    "SAR Report generation — connect to NFIU reporting module",
-                                )
-                            }
+                            onClick={handleGenerateSAR}
+                            disabled={isGeneratingSAR || !aiSummary}
                         >
                             <FileText size={12} />
-                            GEN SAR REPORT
+                            {isGeneratingSAR ? "GENERATING…" : "GEN SAR REPORT"}
                         </Button>
 
                         {/* Freeze Account */}
@@ -558,14 +676,11 @@ export function AnalysisDrawer() {
                                 color: "#ef4444",
                                 background: "rgba(239,68,68,0.07)",
                             }}
-                            onClick={() =>
-                                alert(
-                                    "Freeze Account — connect to core banking system",
-                                )
-                            }
+                            onClick={handleFreezeAccount}
+                            disabled={frozenAccounts.has(selectedTransaction?.id || "")}
                         >
                             <Lock size={12} />
-                            FREEZE ACCOUNT
+                            {frozenAccounts.has(selectedTransaction?.id || "") ? "FROZEN" : "FREEZE ACCOUNT"}
                         </Button>
 
                         {/* Escalate */}
@@ -577,9 +692,7 @@ export function AnalysisDrawer() {
                                 color: "#eab308",
                                 background: "rgba(234,179,8,0.07)",
                             }}
-                            onClick={() =>
-                                alert("Escalate to Senior Compliance Officer")
-                            }
+                            onClick={handleEscalate}
                         >
                             <Bell size={12} />
                             ESCALATE
@@ -594,9 +707,7 @@ export function AnalysisDrawer() {
                                 color: "var(--text-2)",
                                 background: "transparent",
                             }}
-                            onClick={() =>
-                                alert("Open full customer risk profile")
-                            }
+                            onClick={handleViewProfile}
                         >
                             <ExternalLink size={12} />
                             FULL PROFILE
@@ -604,6 +715,12 @@ export function AnalysisDrawer() {
                     </div>
                 </div>
             </SheetContent>
+
+            <CustomerProfileModal
+                transaction={selectedTransaction}
+                open={showProfileModal}
+                onOpenChange={setShowProfileModal}
+            />
         </Sheet>
     );
 }

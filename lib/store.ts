@@ -14,9 +14,17 @@ interface AMLStore {
   // Loading state for AI call
   isAnalyzing: boolean;
   setIsAnalyzing: (v: boolean) => void;
+
+  // SAR Report generation
+  isGeneratingSAR: boolean;
+  setIsGeneratingSAR: (v: boolean) => void;
+
+  // Account freeze status
+  frozenAccounts: Set<string>;
+  setAccountFrozen: (id: string, frozen: boolean) => void;
 }
 
-export const useAMLStore = create<AMLStore>((set) => ({
+export const useAMLStore = create<AMLStore>((set, get) => ({
   selectedTransaction: null,
   setSelectedTransaction: (txn) =>
     set({ selectedTransaction: txn, aiSummary: "", isAnalyzing: false }),
@@ -28,4 +36,19 @@ export const useAMLStore = create<AMLStore>((set) => ({
 
   isAnalyzing: false,
   setIsAnalyzing: (v) => set({ isAnalyzing: v }),
+
+  isGeneratingSAR: false,
+  setIsGeneratingSAR: (v) => set({ isGeneratingSAR: v }),
+
+  frozenAccounts: new Set(),
+  setAccountFrozen: (id, frozen) =>
+    set((state) => {
+      const newFrozen = new Set(state.frozenAccounts);
+      if (frozen) {
+        newFrozen.add(id);
+      } else {
+        newFrozen.delete(id);
+      }
+      return { frozenAccounts: newFrozen };
+    }),
 }));
