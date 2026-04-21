@@ -1,0 +1,146 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ── AML Screener Design Tokens (Design Handoff v1.0) ─────────── */
+:root {
+  /* Backgrounds — exact spec hex values */
+  --bg:          #080B12;
+  --surface:     #0D1117;
+  --surface-2:   #131920;
+  --surface-3:   #1A2232;
+  --border:      #1E2638;
+
+  /* Text */
+  --text-1:      #F0F4FF;
+  --text-2:      #8B95A8;
+  --text-3:      #525C6E;
+
+  /* Risk semantics */
+  --green:       #22C55E;
+  --yellow:      #EAB308;
+  --orange:      #F97316;
+  --red:         #EF4444;
+  --accent:      #3B82F6;
+
+  /* Alpha tints */
+  --green-dim:   rgba(34,197,94,0.1);
+  --yellow-dim:  rgba(234,179,8,0.1);
+  --orange-dim:  rgba(249,115,22,0.1);
+  --red-dim:     rgba(239,68,68,0.1);
+  --accent-dim:  rgba(59,130,246,0.12);
+
+  /* Border radius scale */
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   10px;
+  --radius-pill: 100px;
+  --radius:      0.625rem;
+
+  /* dashboard-01 layout */
+  --header-height: 3rem;
+
+  /* Shadcn compatibility layer */
+  --background:  #080B12;
+  --foreground:  #F0F4FF;
+  --card:        #0D1117;
+  --card-foreground: #F0F4FF;
+  --popover:     #131920;
+  --popover-foreground: #F0F4FF;
+  --primary:     #3B82F6;
+  --primary-foreground: #F0F4FF;
+  --secondary:   #1A2232;
+  --secondary-foreground: #F0F4FF;
+  --muted:       #1A2232;
+  --muted-foreground: #525C6E;
+  --destructive: #EF4444;
+  --input:       #1E2638;
+  --ring:        #3B82F6;
+
+  /* Shadcn sidebar tokens (used by bg-sidebar, text-sidebar-foreground etc.) */
+  --sidebar-background: #0D1117;
+  --sidebar-foreground: #F0F4FF;
+  --sidebar-border:     #1E2638;
+  --sidebar-accent:     rgba(59,130,246,0.09);
+  --sidebar-accent-foreground: #3B82F6;
+  --sidebar-primary:    #3B82F6;
+  --sidebar-primary-foreground: #fff;
+  --sidebar-ring:       #3B82F6;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text-1);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+/* ── Base ─────────────────────────────────────────────────────── */
+@layer base {
+  * { box-sizing: border-box; }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text-1);
+    font-family: var(--font-mono), 'IBM Plex Mono', monospace;
+    -webkit-font-smoothing: antialiased;
+    font-size: 13px;
+  }
+
+  /* Enterprise scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(59,130,246,0.5); }
+}
+
+/* ── Sidebar — kill the white right border ─────────────────────── */
+[data-slot="sidebar-container"] {
+  border-right-color: var(--border) !important;
+}
+/* Shadcn sidebar inner border also uses oklch — override to match theme */
+[data-sidebar="sidebar"] {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+/* ── Sheet backdrop blur ───────────────────────────────────────── */
+[data-slot="dialog-overlay"],
+[data-vaul-overlay] {
+  backdrop-filter: blur(4px) !important;
+  background: rgba(8,11,18,0.7) !important;
+}
+
+/* ── Shadcn ScrollArea track ─────────────────────────────────── */
+[data-slot="scroll-area-scrollbar"] {
+  background: transparent;
+}
+[data-slot="scroll-area-thumb"] {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+/* ── Pulsing ring on flagged scatter nodes ───────────────────── */
+@keyframes spin-dash {
+  to { stroke-dashoffset: -14; }
+}
+.pulse-ring {
+  animation: spin-dash 3s linear infinite;
+}
+
+/* ── AI streaming cursor ─────────────────────────────────────── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.ai-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 13px;
+  background: var(--accent);
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: blink 1.1s step-end infinite;
+}
