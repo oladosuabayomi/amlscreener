@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { LOGIN_COOKIE_NAME, LOGIN_COOKIE_VALUE } from "@/lib/auth";
 
 const PROTECTED_PATHS = [
+    "/connect",
     "/dashboard",
     "/transactions",
     "/flagged",
@@ -25,9 +26,9 @@ export function proxy(request: NextRequest) {
         return NextResponse.redirect(url);
     }
 
-    if (pathname === "/" && hasAccess) {
+    if ((pathname === "/" || pathname === "/login") && hasAccess) {
         const url = request.nextUrl.clone();
-        url.pathname = "/dashboard";
+        url.pathname = "/connect";
         return NextResponse.redirect(url);
     }
 
@@ -37,6 +38,7 @@ export function proxy(request: NextRequest) {
 export const config = {
     matcher: [
         "/",
+        "/connect",
         "/dashboard/:path*",
         "/transactions/:path*",
         "/flagged/:path*",

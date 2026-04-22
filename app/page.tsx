@@ -7,5 +7,5 @@ export default async function HomePage() {
     const isLoggedIn =
         cookieStore.get(LOGIN_COOKIE_NAME)?.value === LOGIN_COOKIE_VALUE;
 
-    redirect(isLoggedIn ? "/dashboard" : "/login");
+    redirect(isLoggedIn ? "/connect" : "/login");
 }
