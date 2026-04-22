@@ -29,6 +29,10 @@ const ROUTE_META: Record<string, { title: string; subtitle: string }> = {
         title: "System Settings",
         subtitle: "Configuration and rule controls",
     },
+    "/dashboard/settings": {
+        title: "System Settings",
+        subtitle: "Configuration and rule controls",
+    },
 };
 
 export function SiteHeader() {

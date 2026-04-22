@@ -6,6 +6,9 @@
 
 /* ── AML Screener Design Tokens (Design Handoff v1.0) ─────────── */
 :root {
+  --font-sans: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
   /* Backgrounds — exact spec hex values */
   --bg:          #080B12;
   --surface:     #0D1117;
