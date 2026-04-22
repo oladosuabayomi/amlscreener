@@ -32,7 +32,7 @@ const data = {
         avatar: "",
     },
     navMain: [
-        { title: "Dashboard", url: "/", icon: BarChart3Icon },
+        { title: "Dashboard", url: "/dashboard", icon: BarChart3Icon },
         { title: "Transactions", url: "/transactions", icon: ListFilterIcon },
         { title: "Flagged", url: "/flagged", icon: AlertTriangleIcon },
         { title: "Reports", url: "/reports", icon: FileTextIcon },
@@ -56,10 +56,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
     const navMain = data.navMain.map((item) => ({
         ...item,
-        isActive:
-            item.url === "/"
-                ? pathname === "/" || pathname === "/dashboard"
-                : pathname === item.url || pathname.startsWith(`${item.url}/`),
+        isActive: pathname === item.url || pathname.startsWith(`${item.url}/`),
     }));
 
     const navSecondary = data.navSecondary.map((item) => ({

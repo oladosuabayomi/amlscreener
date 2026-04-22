@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 
 const ROUTE_META: Record<string, { title: string; subtitle: string }> = {
     "/": {
-        title: "Transaction Intelligence",
-        subtitle: "Live monitoring",
+        title: "Access Gateway",
+        subtitle: "User sign in and data source setup",
     },
     "/dashboard": {
         title: "Transaction Intelligence",
