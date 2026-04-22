@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { LOGIN_COOKIE_NAME, LOGIN_COOKIE_VALUE } from "@/lib/auth";
 
 const PROTECTED_PATHS = [
     "/dashboard",
@@ -11,7 +12,8 @@ const PROTECTED_PATHS = [
 
 export function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
-    const hasAccess = request.cookies.get("aml_access")?.value === "1";
+    const hasAccess =
+        request.cookies.get(LOGIN_COOKIE_NAME)?.value === LOGIN_COOKIE_VALUE;
 
     const isProtected = PROTECTED_PATHS.some(
         (path) => pathname === path || pathname.startsWith(`${path}/`),
@@ -19,7 +21,7 @@ export function proxy(request: NextRequest) {
 
     if (isProtected && !hasAccess) {
         const url = request.nextUrl.clone();
-        url.pathname = "/";
+        url.pathname = "/login";
         return NextResponse.redirect(url);
     }
 
