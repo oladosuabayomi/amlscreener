@@ -9,7 +9,7 @@ const PROTECTED_PATHS = [
     "/settings",
 ];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
     const hasAccess = request.cookies.get("aml_access")?.value === "1";
 

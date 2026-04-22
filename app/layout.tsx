@@ -2,21 +2,21 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AML Screener — Compliance Dashboard",
-  description:
-    "AI-Powered Anti-Money Laundering Detection for Nigerian Financial Institutions",
+    title: "AML Screener — Compliance Dashboard",
+    description:
+        "AI-Powered Anti-Money Laundering Detection for Nigerian Financial Institutions",
 };
 
 export default function RootLayout({
-  children,
+    children,
 }: {
-  children: React.ReactNode;
+    children: React.ReactNode;
 }) {
-  return (
-    <html lang="en" className="dark">
-      <body className="antialiased" style={{ background: "var(--bg)" }}>
-        {children}
-      </body>
-    </html>
-  );
+    return (
+        <html lang="en" className="dark">
+            <body className="antialiased" style={{ background: "var(--bg)" }}>
+                {children}
+            </body>
+        </html>
+    );
 }
